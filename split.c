@@ -39,9 +39,12 @@ static char *nextsuffix(size_t n, char s[])
 		return s;
 	}
 
-	for (size_t i = n-1; i > 0; i--) {
+	for (size_t i = n - 1; ; i--) {
 		s[i] = *(strchr(alphabet, s[i]) + 1);
 		if (s[i] == '\0') {
+			if (i == 0) {
+				return NULL;
+			}
 			s[i] = alphabet[0];
 		} else {
 			break;
