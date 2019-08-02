@@ -41,50 +41,59 @@ static int
 split(const char *in, const char *base, int suffix, uintmax_t lines, uintmax_t bytes)
 {
 	FILE *f = stdin;
-	FILE *o = NULL;
-	char oname[FILENAME_MAX];
 	uintmax_t chunk = 0;
 	int i;
 	char *buf;
 	size_t len;
 	ssize_t nread;
 
-	if (strcmp("-", in))
+	if (in != NULL && strcmp("-", in) != 0) {
 		f = fopen(in, "r");
+	}
 
-	if (bytes > 0)
-		buf = malloc(bytes);
-	else
-		buf = malloc(BUFSIZ);
+	if (f == NULL) {
+		perror("fopen");
+		return 1;
+	}
 
-	memset(oname, '\0', FILENAME_MAX);
-	strcpy(oname, base);
+	if (in != NULL && base == NULL) {
+		base = "x";
+	}
+
+	buf = malloc(bytes ? bytes : BUFSIZ);
+
 
 	while (!feof(f)) {
-		if (chunk >= power(26, suffix))
-			return 2;	// to much data
+		char oname[FILENAME_MAX] = {0};
+		FILE *o = NULL;
+		if (chunk >= power(26, suffix)) {
+			return 1;
+		}
 
-		for (i = suffix; i > 0; i--)
+		strcpy(oname, base);
+		for (i = suffix; i > 0; i--) {
 			oname[strlen(base) + suffix - i] =
 			    ((chunk % power(26, i)) / power(26, i - 1)) + 'a';
+		}
 		o = fopen(oname, "w");
 
 		if (lines > 0) {
 			for (i = lines; !feof(f) && i > 0; i--) {
-				if ((nread = getline(&buf, &len, f)) != -1)
+				if ((nread = getline(&buf, &len, f)) != -1) {
 					fwrite(buf, sizeof(char), nread, o);
+				}
 			}
 		} else {
-			if ((nread = fread(buf, sizeof(char), bytes, f)) != -1)
+			if ((nread = fread(buf, sizeof(char), bytes, f)) != -1) {
 				fwrite(buf, sizeof(char), nread, o);
+			}
 		}
 
 		fclose(o);
 		chunk++;
 	}
 
-	if (strcmp("-", in))
-		fclose(f);
+	fclose(f);
 
 	return 0;
 }
@@ -138,9 +147,9 @@ int main(int argc, char **argv)
 	}
 
 	if (optind >= argc) {
-		split("-", "x", suffix, lines, bytes);
+		split(NULL, "x", suffix, lines, bytes);
 	} else if (optind == argc - 1) {
-		split(argv[optind], "x", suffix, lines, bytes);
+		split(argv[optind], NULL, suffix, lines, bytes);
 	} else if (optind == argc - 2) {
 		split(argv[optind], argv[optind + 1], suffix, lines, bytes);
 	} else {
