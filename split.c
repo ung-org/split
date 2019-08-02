@@ -24,28 +24,30 @@
 #include <string.h>
 #include <unistd.h>
 
-#define K_BYTES	1024
-#define M_BYTES 1048576
+#define K_BYTES			1024
+#define M_BYTES			1048576
 
-static unsigned long power(int base, int power)
+#define DEFAULT_BASE		"x"
+#define DEFAULT_SUFFIX_LENGTH	2
+#define DEFAULT_LINES		1000
+
+static char *nextsuffix(size_t n, char s[])
 {
-	unsigned long r = base;
-	if (power < 1)
-		return 1;
-	for (r = base; power > 1; power--)
-		r *= r;
-	return r;
+	return s;
 }
 
 static int
-split(const char *in, const char *base, int suffix, uintmax_t lines, uintmax_t bytes)
+split(const char *in, const char *base, size_t suffixlen, uintmax_t lines, uintmax_t bytes)
 {
+	char oname[FILENAME_MAX] = {0};
+	char suffix[suffixlen + 2];
+	FILE *o = NULL;
 	FILE *f = stdin;
 	uintmax_t chunk = 0;
-	int i;
-	char *buf;
-	size_t len;
-	ssize_t nread;
+	uintmax_t count = 0;
+
+	memset(suffix, 'a', suffixlen);
+	suffix[suffixlen + 1] = '\0';
 
 	if (in != NULL && strcmp("-", in) != 0) {
 		f = fopen(in, "r");
@@ -57,76 +59,70 @@ split(const char *in, const char *base, int suffix, uintmax_t lines, uintmax_t b
 	}
 
 	if (in != NULL && base == NULL) {
-		base = "x";
+		base = DEFAULT_BASE;
 	}
 
-	buf = malloc(bytes ? bytes : BUFSIZ);
-
-
-	while (!feof(f)) {
-		char oname[FILENAME_MAX] = {0};
-		FILE *o = NULL;
-		if (chunk >= power(26, suffix)) {
-			return 1;
-		}
-
-		strcpy(oname, base);
-		for (i = suffix; i > 0; i--) {
-			oname[strlen(base) + suffix - i] =
-			    ((chunk % power(26, i)) / power(26, i - 1)) + 'a';
-		}
-		o = fopen(oname, "w");
-
-		if (lines > 0) {
-			for (i = lines; !feof(f) && i > 0; i--) {
-				if ((nread = getline(&buf, &len, f)) != -1) {
-					fwrite(buf, sizeof(char), nread, o);
-				}
+	int c;
+	while ((c = fgetc(f)) != EOF) {
+		if (o == NULL) {
+			char *s = nextsuffix(suffixlen, suffix);
+			if (s == NULL) {
+				fprintf(stderr, "too many chunks\n");
+				return 1;
 			}
-		} else {
-			if ((nread = fread(buf, sizeof(char), bytes, f)) != -1) {
-				fwrite(buf, sizeof(char), nread, o);
+			snprintf(oname, sizeof(oname), "%s%s", base, s);
+			o = fopen(oname, "w");
+			if (o == NULL) {
+				perror("fopen");
+				return 1;
 			}
 		}
 
-		fclose(o);
-		chunk++;
-	}
+		fputc(c, o);
 
-	fclose(f);
+		if (bytes != 0 || c == '\n') {
+			count++;
+		}
+
+		if ((bytes != 0 && count == bytes) || count == lines) {
+			fclose(o);
+			chunk++;
+			count = 0;
+		}
+	}
 
 	return 0;
 }
 
 int main(int argc, char **argv)
 {
-	int c;
 	uintmax_t lines = 0;
 	uintmax_t bytes = 0;
-	int suffix = 2;
+	size_t suffix = DEFAULT_SUFFIX_LENGTH;
 	char *end;
 
+	int c;
 	while ((c = getopt(argc, argv, "l:a:b:")) != -1) {
 		switch (c) {
-		case 'l':
+		case 'l':	/* line_count */
 			bytes = 0;
 			lines = strtoumax(optarg, &end, 10);
+			if (*end != '\0') {
+				return 1;
+			}
+			break;
+
+		case 'a':	/* suffix_length */
+			suffix = strtoul(optarg, &end, 10);
 			if (end != NULL && strlen(end) > 0) {
 				return 1;
 			}
 			break;
 
-		case 'a':
-			suffix = strtol(optarg, &end, 10);
-			if (end != NULL && strlen(end) > 0) {
-				return 1;
-			}
-			break;
-
-		case 'b':
+		case 'b':	/* bytes */
 			lines = 0;
 			bytes = strtoumax(optarg, &end, 10);
-			if (end != NULL) {
+			if (*end != '\0') {
 				if (!strcmp("k", end)) {
 					bytes *= K_BYTES;
 				} else if (!strcmp("m", end)) {
@@ -143,11 +139,11 @@ int main(int argc, char **argv)
 	}
 
 	if (lines == 0 && bytes == 0) {
-		lines = 1000;
+		lines = DEFAULT_LINES;
 	}
 
 	if (optind >= argc) {
-		split(NULL, "x", suffix, lines, bytes);
+		split(NULL, NULL, suffix, lines, bytes);
 	} else if (optind == argc - 1) {
 		split(argv[optind], NULL, suffix, lines, bytes);
 	} else if (optind == argc - 2) {
