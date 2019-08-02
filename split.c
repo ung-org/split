@@ -33,6 +33,20 @@
 
 static char *nextsuffix(size_t n, char s[])
 {
+	const char alphabet[] = "abcdefghijklmnopqrstuvwxyz";
+	if (s[0] == '\0') {
+		memset(s, alphabet[0], n);
+		return s;
+	}
+
+	for (size_t i = n-1; i > 0; i--) {
+		s[i] = *(strchr(alphabet, s[i]) + 1);
+		if (s[i] == '\0') {
+			s[i] = alphabet[0];
+		} else {
+			break;
+		}
+	}
 	return s;
 }
 
@@ -43,11 +57,9 @@ split(const char *in, const char *base, size_t suffixlen, uintmax_t lines, uintm
 	char suffix[suffixlen + 2];
 	FILE *o = NULL;
 	FILE *f = stdin;
-	uintmax_t chunk = 0;
 	uintmax_t count = 0;
 
-	memset(suffix, 'a', suffixlen);
-	suffix[suffixlen + 1] = '\0';
+	memset(suffix, '\0', suffixlen + 1);
 
 	if (in != NULL && strcmp("-", in) != 0) {
 		f = fopen(in, "r");
@@ -86,7 +98,7 @@ split(const char *in, const char *base, size_t suffixlen, uintmax_t lines, uintm
 
 		if ((bytes != 0 && count == bytes) || count == lines) {
 			fclose(o);
-			chunk++;
+			o = NULL;
 			count = 0;
 		}
 	}
