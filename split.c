@@ -17,7 +17,8 @@
  *
  */
 
-#define _POSIX_C_SOURCE 2
+#define _POSIX_C_SOURCE 200809L
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,16 +38,16 @@ static unsigned long power(int base, int power)
 }
 
 static int
-split(const char *in, const char *base, int suffix, unsigned int lines, unsigned long bytes)
+split(const char *in, const char *base, int suffix, uintmax_t lines, uintmax_t bytes)
 {
 	FILE *f = stdin;
 	FILE *o = NULL;
 	char oname[FILENAME_MAX];
-	int chunk = 0;
+	uintmax_t chunk = 0;
 	int i;
 	char *buf;
 	size_t len;
-	size_t nread;
+	ssize_t nread;
 
 	if (strcmp("-", in))
 		f = fopen(in, "r");
@@ -84,13 +85,15 @@ split(const char *in, const char *base, int suffix, unsigned int lines, unsigned
 
 	if (strcmp("-", in))
 		fclose(f);
+
+	return 0;
 }
 
 int main(int argc, char **argv)
 {
 	int c;
-	unsigned int lines = 0;
-	unsigned long bytes = 0;
+	uintmax_t lines = 0;
+	uintmax_t bytes = 0;
 	int suffix = 2;
 	char *end;
 
@@ -98,7 +101,7 @@ int main(int argc, char **argv)
 		switch (c) {
 		case 'l':
 			bytes = 0;
-			lines = strtol(optarg, &end, 10);
+			lines = strtoumax(optarg, &end, 10);
 			if (end != NULL && strlen(end) > 0) {
 				return 1;
 			}
@@ -106,13 +109,14 @@ int main(int argc, char **argv)
 
 		case 'a':
 			suffix = strtol(optarg, &end, 10);
-			if (end != NULL && strlen(end) > 0)
+			if (end != NULL && strlen(end) > 0) {
 				return 1;
+			}
 			break;
 
 		case 'b':
 			lines = 0;
-			bytes = strtol(optarg, &end, 10);
+			bytes = strtoumax(optarg, &end, 10);
 			if (end != NULL) {
 				if (!strcmp("k", end)) {
 					bytes *= K_BYTES;
