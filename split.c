@@ -24,6 +24,7 @@
 
 #define _POSIX_C_SOURCE 200809L
 #include <inttypes.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -59,8 +60,7 @@ static char *nextsuffix(size_t n, char s[])
 	return s;
 }
 
-static int
-split(const char *in, const char *base, size_t suffixlen, uintmax_t lines, uintmax_t bytes)
+static int split(const char *in, const char *base, size_t suffixlen, uintmax_t lines, uintmax_t bytes)
 {
 	char oname[FILENAME_MAX] = {0};
 	char suffix[suffixlen + 2];
@@ -115,12 +115,14 @@ split(const char *in, const char *base, size_t suffixlen, uintmax_t lines, uintm
 	return 0;
 }
 
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 {
 	uintmax_t lines = 0;
 	uintmax_t bytes = 0;
 	size_t suffix = DEFAULT_SUFFIX_LENGTH;
 	char *end;
+
+	setlocale(LC_ALL, "");
 
 	int c;
 	while ((c = getopt(argc, argv, "l:a:b:")) != -1) {
